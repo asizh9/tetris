@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тетрис · Только для Димы и Кати</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0b1820, #1a2f3a);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .game-container {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            border-radius: 20px;
+            box-shadow: 0 20px 35px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        canvas {
+            display: block;
+            width: 300px;
+            height: 600px;
+            border-radius: 12px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5), 0 10px 15px rgba(0,0,0,0.4);
+            background: #0a1a22;
+        }
+        .info-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            color: #d4edf8;
+            text-shadow: 0 2px 3px black;
+        }
+        .next-piece {
+            background: #0a1a22;
+            border-radius: 12px;
+            padding: 15px 10px;
+            box-shadow: inset 0 0 8px #1e3b4b, 0 5px 10px black;
+        }
+        .next-piece canvas {
+            width: 120px;
+            height: 120px;
+            background: #0f242e;
+            border-radius: 8px;
+        }
+        .stats {
+            background: #0f242e;
+            padding: 15px 25px;
+            border-radius: 20px;
+            font-size: 22px;
+            font-weight: bold;
+            text-align: center;
+            box-shadow: inset 0 -3px 0 #1e3b4b;
+        }
+        .stats div {
+            margin: 8px 0;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        button {
+            background: #2e4c5f;
+            border: none;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 12px 18px;
+            border-radius: 40px;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #16303d, 0 6px 12px black;
+            transition: 0.1s ease;
+            min-width: 70px;
+        }
+        button:active {
+            transform: translateY(5px);
+            box-shadow: 0 1px 0 #16303d, 0 6px 12px black;
+        }
+        button:hover {
+            background: #3b6075;
+        }
+        .game-over {
+            font-size: 28px;
+            color: #ff9e80;
+            text-shadow: 0 0 10px #ff4d4d;
+        }
+
+        /* Модальное окно входа */
+        .auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .auth-box {
+            background: #0f242e;
+            padding: 40px;
+            border-radius: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            text-align: center;
+            border: 2px solid #4d798b;
+            max-width: 350px;
+            width: 80%;
+        }
+        .auth-box h2 {
+            color: #d4edf8;
+            margin-top: 0;
+            font-size: 28px;
+        }
+        .auth-box input {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: none;
+            border-radius: 50px;
+            background: #1e3b4b;
+            color: white;
+            text-align: center;
+            box-sizing: border-box;
+            margin: 20px 0;
+            outline: 2px solid #4d798b;
+        }
+        .auth-box input::placeholder {
+            color: #9bbac9;
+        }
+        .auth-box button {
+            width: 100%;
+            padding: 15px;
+            font-size: 20px;
+            background: #50c878;
+            box-shadow: 0 5px 0 #2a7a4b;
+        }
+        .auth-box button:hover {
+            background: #6fd98f;
+        }
+        .error-msg {
+            color: #ff9e80;
+            font-size: 18px;
+            margin-top: 15px;
+        }
+        .user-info {
+            font-size: 18px;
+            color: #d4edf8;
+            background: #0f242e;
+            padding: 8px 18px;
+            border-radius: 40px;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <!-- Модальное окно авторизации -->
+    <div id="authOverlay" class="auth-overlay">
+        <div class="auth-box">
+            <h2>🐱 Только для Димы и Кати 🐶</h2>
+            <input type="text" id="userNameInput" placeholder="Введи своё имя" autocomplete="off">
+            <button id="enterGameBtn">Войти в игру</button>
+            <div id="authError" class="error-msg"></div>
+        </div>
+    </div>
+
+    <!-- Основной игровой интерфейс (изначально может быть скрыт?) Мы будем показывать его после авторизации -->
+    <div class="game-container" id="gameContainer" style="display: none;">
+        <canvas id="boardCanvas" width="300" height="600"></canvas>
+
+        <div class="info-panel">
+            <div class="user-info" id="welcomeMessage"></div>
+            <div class="next-piece">
+                <canvas id="nextCanvas" width="120" height="120"></canvas>
+            </div>
+            <div class="stats">
+                <div>Счёт: <span id="scoreDisplay">0</span></div>
+                <div>Линии: <span id="linesDisplay">0</span></div>
+                <div>Уровень: <span id="levelDisplay">1</span></div>
+            </div>
+            <div class="controls">
+                <button id="moveLeftBtn">←</button>
+                <button id="moveRightBtn">→</button>
+                <button id="rotateBtn">↻</button>
+                <button id="softDropBtn">↓</button>
+                <button id="hardDropBtn">⤓</button>
+                <button id="restartBtn">⟲</button>
+            </div>
+            <div id="gameOverMsg" class="game-over"></div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ---------- Проверка авторизации ----------
+            const authOverlay = document.getElementById('authOverlay');
+            const gameContainer = document.getElementById('gameContainer');
+            const userNameInput = document.getElementById('userNameInput');
+            const enterBtn = document.getElementById('enterGameBtn');
+            const authError = document.getElementById('authError');
+            const welcomeSpan = document.getElementById('welcomeMessage');
+
+            let isAuthorized = false;
+            let currentUser = '';
+
+            // Список разрешённых имён (без учёта регистра)
+            const allowedNames = ['дима', 'dima', 'катя', 'katya'];
+
+            function checkAndEnter() {
+                const rawName = userNameInput.value.trim();
+                if (rawName === '') {
+                    authError.innerText = 'Пожалуйста, введите имя.';
+                    return;
+                }
+                const lowerName = rawName.toLowerCase();
+                if (allowedNames.includes(lowerName)) {
+                    // Успех
+                    isAuthorized = true;
+                    currentUser = rawName; // сохраняем как ввёл
+                    authOverlay.style.display = 'none';
+                    gameContainer.style.display = 'flex'; // показываем игру
+                    welcomeSpan.innerText = `Привет, ${rawName}! 👋`;
+                    // Запускаем игру
+                    initGame();
+                } else {
+                    authError.innerText = 'Доступ запрещён. Только Дима и Катя могут играть.';
+                    userNameInput.value = '';
+                }
+            }
+
+            enterBtn.addEventListener('click', checkAndEnter);
+            userNameInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') checkAndEnter();
+            });
+
+            // Если захочет сменить пользователя — можно добавить кнопку, но не обязательно.
+            // Но для удобства добавим скрытую возможность: двойной клик по приветствию сбрасывает?
+            // Пока оставим так.
+
+            // ---------- КОНСТАНТЫ ИГРЫ ----------
+            const COLS = 10;
+            const ROWS = 20;
+            const BLOCK_SIZE = 30;
+            const NEXT_BLOCK_SIZE = 24;
+
+            const PIECES = [
+                { matrix: [[1,1,1,1]], color: '#00f0f0' },
+                { matrix: [[1,1],[1,1]], color: '#f0f000' },
+                { matrix: [[0,1,0],[1,1,1]], color: '#c084fc' },
+                { matrix: [[0,1,1],[1,1,0]], color: '#50c878' },
+                { matrix: [[1,1,0],[0,1,1]], color: '#f08080' },
+                { matrix: [[1,0,0],[1,1,1]], color: '#f0a050' },
+                { matrix: [[0,0,1],[1,1,1]], color: '#6495ed' }
+            ];
+
+            let board = [];
+            let score = 0, lines = 0, level = 1;
+            let gameOver = false;
+            let fallInterval = null;
+            let intervalTime = 500;
+
+            let currentPiece = { matrix: [], color: '', x: 3, y: 0 };
+            let nextPiece = null;
+
+            const boardCanvas = document.getElementById('boardCanvas');
+            const boardCtx = boardCanvas.getContext('2d');
+            const nextCanvas = document.getElementById('nextCanvas');
+            const nextCtx = nextCanvas.getContext('2d');
+
+            const scoreSpan = document.getElementById('scoreDisplay');
+            const linesSpan = document.getElementById('linesDisplay');
+            const levelSpan = document.getElementById('levelDisplay');
+            const gameOverDiv = document.getElementById('gameOverMsg');
+
+            // ---------- Функции игры (без изменений, кроме инициализации) ----------
+            function initBoard() {
+                board = Array.from({ length: ROWS }, () => Array(COLS).fill(''));
+            }
+
+            function getRandomPiece() {
+                const idx = Math.floor(Math.random() * PIECES.length);
+                const piece = PIECES[idx];
+                return {
+                    matrix: piece.matrix.map(row => [...row]),
+                    color: piece.color
+                };
+            }
+
+            function setNextPiece() {
+                if (!nextPiece) nextPiece = getRandomPiece();
+            }
+
+            function collision(matrix, offsetX, offsetY) {
+                for (let r = 0; r < matrix.length; r++) {
+                    for (let c = 0; c < matrix[0].length; c++) {
+                        if (matrix[r][c] !== 0) {
+                            const boardX = offsetX + c;
+                            const boardY = offsetY + r;
+                            if (boardX < 0 || boardX >= COLS || boardY >= ROWS || boardY < 0) return true;
+                            if (boardY >= 0 && board[boardY][boardX] !== '') return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            function mergePiece() {
+                for (let r = 0; r < currentPiece.matrix.length; r++) {
+                    for (let c = 0; c < currentPiece.matrix[0].length; c++) {
+                        if (currentPiece.matrix[r][c] !== 0) {
+                            const boardY = currentPiece.y + r;
+                            const boardX = currentPiece.x + c;
+                            if (boardY >= 0 && boardY < ROWS && boardX >= 0 && boardX < COLS) {
+                                board[boardY][boardX] = currentPiece.color;
+                            }
+                        }
+                    }
+                }
+            }
+
+            function removeFullRows() {
+                let rowsCleared = 0;
+                for (let row = ROWS - 1; row >= 0;) {
+                    if (board[row].every(cell => cell !== '')) {
+                        board.splice(row, 1);
+                        board.unshift(new Array(COLS).fill(''));
+                        rowsCleared++;
+                    } else {
+                        row--;
+                    }
+                }
+                if (rowsCleared > 0) {
+                    const points = [0, 100, 300, 500, 800];
+                    const addScore = points[rowsCleared] || 800;
+                    score += addScore;
+                    lines += rowsCleared;
+                    const newLevel = Math.floor(lines / 10) + 1;
+                    if (newLevel > level) {
+                        level = newLevel;
+                        updateInterval();
+                    }
+                    updateStats();
+                }
+            }
+
+            function updateInterval() {
+                if (fallInterval) clearInterval(fallInterval);
+                intervalTime = Math.max(100, 500 - (level - 1) * 40);
+                fallInterval = setInterval(() => {
+                    if (!gameOver) movePieceDown();
+                }, intervalTime);
+            }
+
+            function movePieceDown() {
+                if (gameOver) return;
+                if (!collision(currentPiece.matrix, currentPiece.x, currentPiece.y + 1)) {
+                    currentPiece.y++;
+                } else {
+                    mergePiece();
+                    removeFullRows();
+                    spawnNewPiece();
+                }
+                drawAll();
+            }
+
+            function hardDrop() {
+                if (gameOver) return;
+                while (!collision(currentPiece.matrix, currentPiece.x, currentPiece.y + 1)) {
+                    currentPiece.y++;
+                }
+                mergePiece();
+                removeFullRows();
+                spawnNewPiece();
+                drawAll();
+            }
+
+            function rotatePiece() {
+                if (gameOver) return;
+                const matrix = currentPiece.matrix;
+                const rotated = matrix[0].map((_, idx) => matrix.map(row => row[idx]).reverse());
+                if (!collision(rotated, currentPiece.x, currentPiece.y)) {
+                    currentPiece.matrix = rotated;
+                } else {
+                    if (!collision(rotated, currentPiece.x - 1, currentPiece.y)) {
+                        currentPiece.matrix = rotated;
+                        currentPiece.x -= 1;
+                    } else if (!collision(rotated, currentPiece.x + 1, currentPiece.y)) {
+                        currentPiece.matrix = rotated;
+                        currentPiece.x += 1;
+                    }
+                }
+                drawAll();
+            }
+
+            function moveLeft() {
+                if (gameOver) return;
+                if (!collision(currentPiece.matrix, currentPiece.x - 1, currentPiece.y)) {
+                    currentPiece.x--;
+                    drawAll();
+                }
+            }
+
+            function moveRight() {
+                if (gameOver) return;
+                if (!collision(currentPiece.matrix, currentPiece.x + 1, currentPiece.y)) {
+                    currentPiece.x++;
+                    drawAll();
+                }
+            }
+
+            function spawnNewPiece() {
+                if (!nextPiece) setNextPiece();
+                currentPiece.matrix = nextPiece.matrix.map(row => [...row]);
+                currentPiece.color = nextPiece.color;
+                currentPiece.x = Math.floor((COLS - currentPiece.matrix[0].length) / 2);
+                currentPiece.y = 0;
+
+                nextPiece = getRandomPiece();
+
+                if (collision(currentPiece.matrix, currentPiece.x, currentPiece.y)) {
+                    gameOver = true;
+                    if (fallInterval) {
+                        clearInterval(fallInterval);
+                        fallInterval = null;
+                    }
+                    gameOverDiv.innerText = 'GAME OVER';
+                } else {
+                    gameOverDiv.innerText = '';
+                }
+            }
+
+            function drawAll() {
+                drawBoard();
+                drawNext();
+                updateStats();
+            }
+
+            function drawBoard() {
+                boardCtx.clearRect(0, 0, boardCanvas.width, boardCanvas.height);
+                for (let row = 0; row < ROWS; row++) {
+                    for (let col = 0; col < COLS; col++) {
+                        const color = board[row][col];
+                        if (color) {
+                            boardCtx.fillStyle = color;
+                            boardCtx.fillRect(col * BLOCK_SIZE, row * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+                            boardCtx.fillStyle = 'rgba(255,255,255,0.2)';
+                            boardCtx.fillRect(col * BLOCK_SIZE, row * BLOCK_SIZE, BLOCK_SIZE - 2, 3);
+                        } else {
+                            boardCtx.fillStyle = '#102b36';
+                            boardCtx.fillRect(col * BLOCK_SIZE, row * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+                            boardCtx.fillStyle = '#1c3f4e';
+                            boardCtx.fillRect(col * BLOCK_SIZE + 1, row * BLOCK_SIZE + 1, BLOCK_SIZE - 3, BLOCK_SIZE - 3);
+                        }
+                    }
+                }
+
+                if (currentPiece && !gameOver) {
+                    for (let r = 0; r < currentPiece.matrix.length; r++) {
+                        for (let c = 0; c < currentPiece.matrix[0].length; c++) {
+                            if (currentPiece.matrix[r][c] !== 0) {
+                                const x = (currentPiece.x + c) * BLOCK_SIZE;
+                                const y = (currentPiece.y + r) * BLOCK_SIZE;
+                                boardCtx.fillStyle = currentPiece.color;
+                                boardCtx.fillRect(x, y, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+                                boardCtx.fillStyle = 'rgba(255,255,255,0.35)';
+                                boardCtx.fillRect(x, y, BLOCK_SIZE - 6, 3);
+                            }
+                        }
+                    }
+                }
+                boardCtx.strokeStyle = '#4d798b';
+                boardCtx.lineWidth = 2;
+                boardCtx.strokeRect(0, 0, boardCanvas.width, boardCanvas.height);
+            }
+
+            function drawNext() {
+                nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+                if (nextPiece) {
+                    const matrix = nextPiece.matrix;
+                    const color = nextPiece.color;
+                    const cols = matrix[0].length;
+                    const rows = matrix.length;
+                    const offsetX = (nextCanvas.width - cols * NEXT_BLOCK_SIZE) / 2;
+                    const offsetY = (nextCanvas.height - rows * NEXT_BLOCK_SIZE) / 2;
+                    for (let r = 0; r < rows; r++) {
+                        for (let c = 0; c < cols; c++) {
+                            if (matrix[r][c] !== 0) {
+                                const x = offsetX + c * NEXT_BLOCK_SIZE;
+                                const y = offsetY + r * NEXT_BLOCK_SIZE;
+                                nextCtx.fillStyle = color;
+                                nextCtx.fillRect(x, y, NEXT_BLOCK_SIZE - 2, NEXT_BLOCK_SIZE - 2);
+                                nextCtx.fillStyle = 'rgba(255,255,255,0.3)';
+                                nextCtx.fillRect(x, y, NEXT_BLOCK_SIZE - 6, 4);
+                            }
+                        }
+                    }
+                }
+            }
+
+            function updateStats() {
+                scoreSpan.textContent = score;
+                linesSpan.textContent = lines;
+                levelSpan.textContent = level;
+            }
+
+            function restartGame() {
+                gameOver = false;
+                gameOverDiv.innerText = '';
+                initBoard();
+                score = 0;
+                lines = 0;
+                level = 1;
+                updateStats();
+                nextPiece = getRandomPiece();
+                spawnNewPiece();
+                if (fallInterval) clearInterval(fallInterval);
+                updateInterval();
+                drawAll();
+            }
+
+            // Инициализация игры (вызывается только после успешного входа)
+            function initGame() {
+                initBoard();
+                nextPiece = getRandomPiece();
+                spawnNewPiece();
+                updateInterval();
+                drawAll();
+            }
+
+            // ---------- Привязка клавиш и кнопок ----------
+            function handleKeyDown(e) {
+                const key = e.key;
+                if (gameOver || !isAuthorized) return;
+                e.preventDefault();
+                switch (key) {
+                    case 'ArrowLeft': moveLeft(); break;
+                    case 'ArrowRight': moveRight(); break;
+                    case 'ArrowDown': movePieceDown(); break;
+                    case 'ArrowUp': rotatePiece(); break;
+                    case ' ':
+                    case 'Space': hardDrop(); break;
+                    default: return;
+                }
+                drawAll();
+            }
+
+            window.addEventListener('keydown', (e) => {
+                const arrows = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '];
+                if (arrows.includes(e.key) || e.key === 'Space') e.preventDefault();
+            });
+            document.addEventListener('keydown', handleKeyDown);
+
+            document.getElementById('moveLeftBtn').addEventListener('click', moveLeft);
+            document.getElementById('moveRightBtn').addEventListener('click', moveRight);
+            document.getElementById('rotateBtn').addEventListener('click', rotatePiece);
+            document.getElementById('softDropBtn').addEventListener('click', movePieceDown);
+            document.getElementById('hardDropBtn').addEventListener('click', hardDrop);
+            document.getElementById('restartBtn').addEventListener('click', restartGame);
+
+            // Если вдруг захотели вернуться к авторизации (двойной клик по приветствию)
+            welcomeSpan.addEventListener('dblclick', () => {
+                if (confirm('Сменить пользователя? Игра начнётся заново.')) {
+                    // Сброс
+                    if (fallInterval) clearInterval(fallInterval);
+                    gameContainer.style.display = 'none';
+                    authOverlay.style.display = 'flex';
+                    userNameInput.value = '';
+                    authError.innerText = '';
+                    isAuthorized = false;
+                }
+            });
+        })();
+    </script>
+</body>
+</html>
